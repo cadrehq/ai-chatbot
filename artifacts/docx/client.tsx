@@ -1,4 +1,8 @@
-import { DocumentEditor } from "@onlyoffice/document-editor-react";
+import {
+  DocumentEditor,
+  type IConfig,
+} from "@onlyoffice/document-editor-react";
+import { useSession } from "next-auth/react";
 import type React from "react";
 import { useEffect, useMemo, useState } from "react";
 
@@ -18,25 +22,29 @@ export const OnlyOfficeDocx: React.FC<OnlyOfficeDocxProps> = ({
   const [token, setToken] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState(true);
 
-  const config = useMemo(
+  const { data: session } = useSession();
+
+  const config: IConfig = useMemo(
     () => ({
       document: {
         fileType: "docx",
         key: documentKey,
         title: documentTitle,
         url: documentUrl,
+        permissions: { edit: false, review: true },
       },
       documentType: "word",
       editorConfig: {
         callbackUrl,
         mode: "edit",
         user: {
-          id: "user-1",
-          name: "User",
+          id: session?.user?.id || Math.random().toString(36).substring(2, 15),
+          name: session?.user?.name || "Guest",
+          image: `https://avatar.vercel.sh/${session?.user?.email}`,
         },
       },
     }),
-    [documentKey, documentTitle, documentUrl, callbackUrl]
+    [documentKey, documentTitle, documentUrl, callbackUrl, session?.user]
   );
 
   useEffect(() => {
@@ -61,7 +69,7 @@ export const OnlyOfficeDocx: React.FC<OnlyOfficeDocxProps> = ({
   }
 
   return (
-    <div style={{ height: "600px", width: "100%" }}>
+    <div className="h-full w-full">
       <DocumentEditor
         config={{ ...config, token }}
         documentServerUrl={process.env.NEXT_PUBLIC_ONLY_OFFICE_SERVER_URL ?? ""}

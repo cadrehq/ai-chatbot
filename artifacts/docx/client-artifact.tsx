@@ -4,10 +4,10 @@ import type { ComponentType } from "react";
 import { OnlyOfficeDocx } from "@/artifacts/docx/client";
 import { Artifact } from "@/components/create-artifact";
 
-const DocxContent: ComponentType<any> = ({ title, content }) => (
+const DocxContent: ComponentType<any> = ({ title, content, id }) => (
   <OnlyOfficeDocx
     callbackUrl={"/api/files/upload"}
-    documentKey={Math.random().toString(36).substring(2, 15)}
+    documentKey={id}
     documentTitle={title}
     documentUrl={content}
   />

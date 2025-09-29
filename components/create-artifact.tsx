@@ -34,6 +34,7 @@ export type ArtifactToolbarItem = {
 };
 
 type ArtifactContent<M = any> = {
+  id: string;
   title: string;
   content: string;
   mode: "edit" | "diff";

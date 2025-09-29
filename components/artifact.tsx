@@ -467,6 +467,7 @@ function PureArtifact({
                 }
                 currentVersionIndex={currentVersionIndex}
                 getDocumentContentById={getDocumentContentById}
+                id={artifact.documentId}
                 isCurrentVersion={isCurrentVersion}
                 isInline={false}
                 isLoading={isDocumentsFetching && !artifact.content}
