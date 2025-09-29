@@ -12,9 +12,17 @@ const FileSchema = z.object({
       message: "File size should be less than 5MB",
     })
     // Update the file type based on the kind of files you want to accept
-    .refine((file) => ["image/jpeg", "image/png"].includes(file.type), {
-      message: "File type should be JPEG or PNG",
-    }),
+    .refine(
+      (file) =>
+        [
+          "image/jpeg",
+          "image/png",
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        ].includes(file.type),
+      {
+        message: "File type should be JPEG, PNG, or DOCX",
+      }
+    ),
 });
 
 export async function POST(request: Request) {

@@ -31,7 +31,7 @@ export const OnlyOfficeDocx: React.FC<OnlyOfficeDocxProps> = ({
         key: documentKey,
         title: documentTitle,
         url: documentUrl,
-        permissions: { edit: false, review: true },
+        permissions: { edit: true, review: true },
       },
       documentType: "word",
       editorConfig: {
@@ -48,7 +48,7 @@ export const OnlyOfficeDocx: React.FC<OnlyOfficeDocxProps> = ({
   );
 
   useEffect(() => {
-    if (!documentUrl) {
+    if (!documentUrl || token) {
       return;
     }
 
@@ -62,9 +62,9 @@ export const OnlyOfficeDocx: React.FC<OnlyOfficeDocxProps> = ({
         setToken(data.token);
         setLoading(false);
       });
-  }, [documentUrl, config]);
+  }, [documentUrl, config, token]);
 
-  if (!documentUrl || loading) {
+  if ((!documentUrl || loading) && !token) {
     return null;
   }
 
