@@ -1,11 +1,12 @@
 import { smoothStream, streamText } from "ai";
+import { docxDocumentHandler } from "@/artifacts/docx/server";
 import { updateDocumentPrompt } from "@/lib/ai/prompts";
 import { myProvider } from "@/lib/ai/providers";
 import { createDocumentHandler } from "@/lib/artifacts/server";
 
 export const textDocumentHandler = createDocumentHandler<"text">({
   kind: "text",
-  onCreateDocument: async ({ title, dataStream }) => {
+  onCreateDocument: async ({ title, dataStream, id, session }) => {
     let draftContent = "";
 
     const { fullStream } = streamText({
@@ -30,6 +31,17 @@ export const textDocumentHandler = createDocumentHandler<"text">({
           transient: true,
         });
       }
+    }
+
+    // After streaming text, create a docx document with the same content
+    if (session?.user?.id) {
+      await docxDocumentHandler.onCreateDocument({
+        id,
+        title,
+        dataStream,
+        session,
+        content: draftContent,
+      });
     }
 
     return draftContent;

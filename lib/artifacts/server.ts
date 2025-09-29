@@ -1,6 +1,7 @@
 import type { UIMessageStreamWriter } from "ai";
 import type { Session } from "next-auth";
 import { codeDocumentHandler } from "@/artifacts/code/server";
+import { docxDocumentHandler } from "@/artifacts/docx/server";
 import { sheetDocumentHandler } from "@/artifacts/sheet/server";
 import { textDocumentHandler } from "@/artifacts/text/server";
 import type { ArtifactKind } from "@/components/artifact";
@@ -21,6 +22,7 @@ export type CreateDocumentCallbackProps = {
   title: string;
   dataStream: UIMessageStreamWriter<ChatMessage>;
   session: Session;
+  content?: string; // Allow passing content for docx creation
 };
 
 export type UpdateDocumentCallbackProps = {
@@ -32,8 +34,8 @@ export type UpdateDocumentCallbackProps = {
 
 export type DocumentHandler<T = ArtifactKind> = {
   kind: T;
-  onCreateDocument: (args: CreateDocumentCallbackProps) => Promise<void>;
-  onUpdateDocument: (args: UpdateDocumentCallbackProps) => Promise<void>;
+  onCreateDocument: (args: CreateDocumentCallbackProps) => Promise<string>;
+  onUpdateDocument: (args: UpdateDocumentCallbackProps) => Promise<string>;
 };
 
 export function createDocumentHandler<T extends ArtifactKind>(config: {
@@ -44,13 +46,7 @@ export function createDocumentHandler<T extends ArtifactKind>(config: {
   return {
     kind: config.kind,
     onCreateDocument: async (args: CreateDocumentCallbackProps) => {
-      const draftContent = await config.onCreateDocument({
-        id: args.id,
-        title: args.title,
-        dataStream: args.dataStream,
-        session: args.session,
-      });
-
+      const draftContent = await config.onCreateDocument(args);
       if (args.session?.user?.id) {
         await saveDocument({
           id: args.id,
@@ -60,17 +56,10 @@ export function createDocumentHandler<T extends ArtifactKind>(config: {
           userId: args.session.user.id,
         });
       }
-
-      return;
+      return draftContent;
     },
     onUpdateDocument: async (args: UpdateDocumentCallbackProps) => {
-      const draftContent = await config.onUpdateDocument({
-        document: args.document,
-        description: args.description,
-        dataStream: args.dataStream,
-        session: args.session,
-      });
-
+      const draftContent = await config.onUpdateDocument(args);
       if (args.session?.user?.id) {
         await saveDocument({
           id: args.document.id,
@@ -80,8 +69,7 @@ export function createDocumentHandler<T extends ArtifactKind>(config: {
           userId: args.session.user.id,
         });
       }
-
-      return;
+      return draftContent;
     },
   };
 }
@@ -93,6 +81,7 @@ export const documentHandlersByArtifactKind: DocumentHandler[] = [
   textDocumentHandler,
   codeDocumentHandler,
   sheetDocumentHandler,
+  docxDocumentHandler,
 ];
 
 export const artifactKinds = ["text", "code", "sheet"] as const;

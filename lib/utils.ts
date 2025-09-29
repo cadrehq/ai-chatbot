@@ -10,6 +10,8 @@ import { twMerge } from 'tailwind-merge';
 import type { DBMessage, Document } from '@/lib/db/schema';
 import { ChatSDKError, type ErrorCode } from './errors';
 import type { ChatMessage, ChatTools, CustomUIDataTypes } from './types';
+import { Paragraph, Table, TableCell, TableRow, TextRun } from "docx";
+import { marked } from "marked";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -113,4 +115,94 @@ export function getTextFromMessage(message: ChatMessage): string {
     .filter((part) => part.type === 'text')
     .map((part) => part.text)
     .join('');
+}
+
+function processInlineTokens(tokens: any[]): TextRun[] {
+  return tokens.map((token) => {
+    switch (token.type) {
+      case "strong":
+        return new TextRun({ text: token.text, bold: true });
+      case "em":
+        return new TextRun({ text: token.text, italics: true });
+      case "codespan":
+        return new TextRun({ text: token.text, style: "Code" });
+      case "link":
+        return new TextRun({
+          text: `${token.text} (${token.href})`,
+          style: "Hyperlink",
+        });
+      case "text":
+        return new TextRun(token.text);
+      default:
+        return new TextRun(token.text);
+    }
+  });
+}
+
+export function markdownToDocxParagraphs(content: string): (Paragraph | Table)[] {
+  const paragraphs: (Paragraph | Table)[] = [];
+  const tokens = marked.lexer(content);
+  for (const token of tokens) {
+    switch (token.type) {
+      case "heading":
+        paragraphs.push(
+          new Paragraph({
+            text: token.text,
+            heading: `Heading${token.depth}` as any,
+            spacing: { after: 200 },
+          })
+        );
+        break;
+      case "paragraph":
+        paragraphs.push(
+          new Paragraph({
+            children: processInlineTokens(
+              token.tokens || [{ type: "text", text: token.text }]
+            ),
+          })
+        );
+        break;
+      case "list":
+        for (const item of token.items) {
+          paragraphs.push(
+        new Paragraph({
+          children: processInlineTokens(item.tokens || [{ type: "text", text: item.text }]),
+          bullet: { level: 0 }
+        })
+          );
+        }
+        break;
+      case "code":
+        paragraphs.push(new Paragraph({ text: token.text, style: "Code" }));
+        break;
+      case "blockquote":
+        paragraphs.push(new Paragraph({ text: token.text, style: "Quote" }));
+        break;
+      case "table": {
+        const rows = [
+          new TableRow({
+            children: token.header.map(
+              (cell: string) =>
+                new TableCell({ children: [new Paragraph(cell)] })
+            ),
+          }),
+          ...token.rows.map(
+            (row: string[]) =>
+              new TableRow({
+                children: row.map(
+                  (cell: string) =>
+                    new TableCell({ children: [new Paragraph(cell)] })
+                ),
+              })
+          ),
+        ];
+        paragraphs.push(new Table({ rows }));
+        break;
+      }
+      default:
+        paragraphs.push(new Paragraph(token.raw || ""));
+        break;
+    }
+  }
+  return paragraphs;
 }

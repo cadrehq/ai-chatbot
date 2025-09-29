@@ -98,6 +98,59 @@ export function DocumentPreview({
         }
       : null;
 
+  if (previewDocument?.kind === "docx") {
+    const fileName = previewDocument.title || "DOCX Document";
+    const processedDate = previewDocument.createdAt
+      ? new Date(previewDocument.createdAt).toLocaleDateString(undefined, {
+          year: "numeric",
+          month: "short",
+          day: "numeric",
+          hour: "numeric",
+          minute: "2-digit",
+        })
+      : "";
+    return (
+      <button
+        className="group flex w-fit max-w-full cursor-pointer items-center gap-3 rounded-2xl border border-zinc-200 bg-white/80 px-5 py-3 shadow-md transition hover:bg-blue-50 dark:border-zinc-700 dark:bg-zinc-900/80 dark:hover:bg-blue-950"
+        onClick={(event) => {
+          const boundingBox = event.currentTarget.getBoundingClientRect();
+          setArtifact((current) =>
+            current.status === "streaming"
+              ? { ...current, isVisible: true }
+              : {
+                  ...current,
+                  title: result.title,
+                  documentId: result.id,
+                  kind: result.kind,
+                  isVisible: true,
+                  boundingBox: {
+                    left: boundingBox.x,
+                    top: boundingBox.y,
+                    width: boundingBox.width,
+                    height: boundingBox.height,
+                  },
+                }
+          );
+        }}
+        style={{ textDecoration: "none" }}
+        title={fileName}
+        type="button"
+      >
+        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-100 text-blue-600 group-hover:bg-blue-200 dark:bg-blue-900 dark:text-blue-300 dark:group-hover:bg-blue-800">
+          <FileIcon size={22} />
+        </span>
+        <span className="flex min-w-0 flex-col items-start">
+          <span className="truncate font-semibold text-base text-zinc-900 group-hover:text-blue-700 dark:text-zinc-100 dark:group-hover:text-blue-300">
+            {fileName}
+          </span>
+          <span className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+            {processedDate}
+          </span>
+        </span>
+      </button>
+    );
+  }
+
   if (!document) {
     return <LoadingSkeleton artifactKind={artifact.kind} />;
   }
