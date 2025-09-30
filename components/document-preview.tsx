@@ -88,27 +88,18 @@ export function DocumentPreview({
   const document: Document | null = previewDocument
     ? previewDocument
     : artifact.status === "streaming"
-      ? {
-          title: artifact.title,
-          kind: artifact.kind,
-          content: artifact.content,
-          id: artifact.documentId,
-          createdAt: new Date(),
-          userId: "noop",
-        }
-      : null;
+    ? {
+        title: artifact.title,
+        kind: artifact.kind,
+        content: artifact.content,
+        id: artifact.documentId,
+        createdAt: new Date(),
+        userId: "noop",
+      }
+    : null;
 
   if (previewDocument?.kind === "docx") {
     const fileName = previewDocument.title || "DOCX Document";
-    const processedDate = previewDocument.createdAt
-      ? new Date(previewDocument.createdAt).toLocaleDateString(undefined, {
-          year: "numeric",
-          month: "short",
-          day: "numeric",
-          hour: "numeric",
-          minute: "2-digit",
-        })
-      : "";
     return (
       <button
         className="group flex w-fit max-w-full cursor-pointer items-center gap-3 rounded-2xl border border-zinc-200 bg-white/80 px-5 py-3 shadow-md transition hover:bg-blue-50 dark:border-zinc-700 dark:bg-zinc-900/80 dark:hover:bg-blue-950"
@@ -142,9 +133,6 @@ export function DocumentPreview({
         <span className="flex min-w-0 flex-col items-start">
           <span className="truncate font-semibold text-base text-zinc-900 group-hover:text-blue-700 dark:text-zinc-100 dark:group-hover:text-blue-300">
             {fileName}
-          </span>
-          <span className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-            {processedDate}
           </span>
         </span>
       </button>
@@ -345,7 +333,7 @@ const DocumentContent = ({ document }: { document: Document }) => {
         />
       ) : document.kind === "docx" ? (
         <OnlyOfficeDocx
-          callbackUrl={"/api/files/upload"}
+          callbackUrl={`${process.env.NEXT_PUBLIC_APP_URL}/api/onlyoffice/callback`}
           documentKey={document.id}
           documentTitle={document.title}
           documentUrl={document.content ?? ""}

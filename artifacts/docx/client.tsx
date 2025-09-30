@@ -36,11 +36,16 @@ export const OnlyOfficeDocx: React.FC<OnlyOfficeDocxProps> = ({
       documentType: "word",
       editorConfig: {
         callbackUrl,
-        mode: "edit",
+        mode: "review",
         user: {
           id: session?.user?.id || Math.random().toString(36).substring(2, 15),
           name: session?.user?.name || "Guest",
           image: `https://avatar.vercel.sh/${session?.user?.email}`,
+        },
+        customization: {
+          review: {
+            trackChanges: true,
+          },
         },
       },
     }),

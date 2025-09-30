@@ -6,7 +6,7 @@ import { Artifact } from "@/components/create-artifact";
 
 const DocxContent: ComponentType<any> = ({ title, content, id }) => (
   <OnlyOfficeDocx
-    callbackUrl={"/api/files/upload"}
+    callbackUrl={`${process.env.NEXT_PUBLIC_APP_URL}/api/onlyoffice/callback`}
     documentKey={id}
     documentTitle={title}
     documentUrl={content}

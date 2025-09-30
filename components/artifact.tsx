@@ -91,7 +91,7 @@ function PureArtifact({
   const { artifact, setArtifact, metadata, setMetadata } = useArtifact();
 
   const {
-    data: docs,
+    data: documents,
     isLoading: isDocumentsFetching,
     mutate: mutateDocuments,
   } = useSWR<Document[]>(
@@ -99,20 +99,6 @@ function PureArtifact({
       ? `/api/document?id=${artifact.documentId}`
       : null,
     fetcher
-  );
-
-  const documents = useMemo(
-    () =>
-      (docs ?? []).slice().sort((a, b) => {
-        if (a.kind === "docx" && b.kind !== "docx") {
-          return 1;
-        }
-        if (a.kind !== "docx" && b.kind === "docx") {
-          return -1;
-        }
-        return 0;
-      }),
-    [docs]
   );
 
   const [mode, setMode] = useState<"edit" | "diff">("edit");

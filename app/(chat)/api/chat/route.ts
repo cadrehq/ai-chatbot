@@ -40,7 +40,11 @@ import {
 import { ChatSDKError } from "@/lib/errors";
 import type { ChatMessage } from "@/lib/types";
 import type { AppUsage } from "@/lib/usage";
-import { convertToUIMessages, generateUUID } from "@/lib/utils";
+import {
+  convertToUIMessages,
+  convertUrlToBase64,
+  generateUUID,
+} from "@/lib/utils";
 import { generateTitleFromUserMessage } from "../../actions";
 import { type PostRequestBody, postRequestBodySchema } from "./schema";
 
@@ -144,7 +148,13 @@ export async function POST(request: Request) {
     }
 
     const messagesFromDb = await getMessagesByChatId({ id });
-    const uiMessages = [...convertToUIMessages(messagesFromDb), message];
+
+    const uiMessages = [
+      ...(await Promise.all(
+        convertToUIMessages(messagesFromDb).map(convertUrlToBase64)
+      )),
+      await convertUrlToBase64(message),
+    ];
 
     const { longitude, latitude, city, country } = geolocation(request);
 
@@ -187,17 +197,17 @@ export async function POST(request: Request) {
                   "getWeather",
                   "createDocument",
                   "updateDocument",
-                  "requestSuggestions",
+                  // "requestSuggestions",
                 ],
           experimental_transform: smoothStream({ chunking: "word" }),
           tools: {
             getWeather,
             createDocument: createDocument({ session, dataStream }),
             updateDocument: updateDocument({ session, dataStream }),
-            requestSuggestions: requestSuggestions({
-              session,
-              dataStream,
-            }),
+            // requestSuggestions: requestSuggestions({
+            //   session,
+            //   dataStream,
+            // }),
           },
           experimental_telemetry: {
             isEnabled: isProductionEnvironment,
