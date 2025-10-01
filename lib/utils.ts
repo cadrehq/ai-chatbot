@@ -34,6 +34,19 @@ export const fetcher = async (url: string) => {
   return response.json();
 };
 
+export const postRequest = async <T>(url: string, payload: T) => {
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const { code, cause } = await response.json();
+    throw new ChatSDKError(code as ErrorCode, cause);
+  }
+  return response.json();
+};
+
 export async function fetchWithErrorHandlers(
   input: RequestInfo | URL,
   init?: RequestInit

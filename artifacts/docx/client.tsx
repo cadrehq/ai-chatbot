@@ -10,6 +10,9 @@ import React, {
   useRef,
   useState,
 } from "react";
+import useSWR from "swr";
+import { Suggestion } from "@/lib/db/schema";
+import { fetcher, postRequest } from "@/lib/utils";
 
 type OnlyOfficeDocxProps = {
   documentUrl: string;
@@ -24,9 +27,6 @@ export const OnlyOfficeDocx: React.FC<OnlyOfficeDocxProps> = ({
   documentTitle,
   callbackUrl,
 }) => {
-  const [token, setToken] = useState<string | undefined>(undefined);
-  const [loading, setLoading] = useState(true);
-  const [suggestions, setSuggestions] = useState<any[]>([]);
   const [documentReady, setDocumentReady] = useState(false);
   const { data: session } = useSession();
   const editorRef = useRef<any>(null);
@@ -58,7 +58,29 @@ export const OnlyOfficeDocx: React.FC<OnlyOfficeDocxProps> = ({
         onDocumentReady: () => setDocumentReady(true),
       },
     };
-  }, [documentKey, documentTitle, documentUrl, callbackUrl, session]);
+  }, [documentKey, documentTitle, documentUrl, callbackUrl, session?.user]);
+
+  const {
+    data: { token } = {},
+    error: tokenError,
+    isLoading: tokenLoading,
+  } = useSWR(
+    documentUrl ? "/api/onlyoffice/token" : null,
+    (url) => postRequest<IConfig>(url, config),
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+      dedupingInterval: 5 * 60 * 1000, // 5 minutes
+    }
+  );
+
+  const { data: suggestions = [], error: suggestionsError } = useSWR<
+    Suggestion[]
+  >(
+    documentUrl && token ? `/api/suggestions?documentId=${documentKey}` : null,
+    fetcher,
+    { revalidateOnFocus: false }
+  );
 
   const applySuggestions = useCallback(() => {
     // Prevent applying suggestions multiple times
@@ -76,16 +98,13 @@ export const OnlyOfficeDocx: React.FC<OnlyOfficeDocxProps> = ({
       const connector = docEditor.createConnector();
       editorRef.current = connector;
 
-      console.log(`Applying ${suggestions.length} suggestions...`);
-
-      // Use the proper OnlyOffice API to search and add comments/edits
       suggestions.forEach((suggestion, index) => {
         setTimeout(() => {
           addTrackChangeEdit(
             connector,
             suggestion.originalText,
             suggestion.suggestedText,
-            suggestion.description
+            suggestion.description || ""
           );
         }, index * 500); // Stagger the operations
       });
@@ -96,39 +115,6 @@ export const OnlyOfficeDocx: React.FC<OnlyOfficeDocxProps> = ({
     }
   }, [suggestions, session?.user?.name]);
 
-  // Fetch token for OnlyOffice
-  useEffect(() => {
-    if (!documentUrl || token) return;
-    fetch("/api/onlyoffice/token", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(config),
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        setToken(data.token);
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error("Error fetching OnlyOffice token", err);
-        setLoading(false);
-      });
-  }, [documentUrl, config, token]);
-
-  // Fetch AI suggestions
-  useEffect(() => {
-    if (!documentUrl || token) return;
-    fetch(`/api/suggestions?documentId=${documentKey}`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (Array.isArray(data)) setSuggestions(data);
-      })
-      .catch((err) => {
-        console.error("Error fetching suggestions", err);
-      });
-  }, [documentKey, documentUrl, token]);
-
-  // Apply suggestions when both document is ready and suggestions are loaded
   useEffect(() => {
     if (
       documentReady &&
@@ -139,48 +125,53 @@ export const OnlyOfficeDocx: React.FC<OnlyOfficeDocxProps> = ({
     }
   }, [documentReady, suggestions, applySuggestions]);
 
-  // Add a tracked change suggestion
   const addTrackChangeEdit = (
     connector: any,
     oldText: string,
     newText: string,
     description?: string
   ) => {
-    try {
-      // Replace the text (this will be tracked as a change)
-      connector.executeMethod("SearchAndReplace", [
-        { searchString: oldText, replaceString: newText, matchCase: true },
-      ]);
+    connector.executeMethod("SearchAndReplace", [
+      { searchString: oldText, replaceString: newText, matchCase: true },
+    ]);
 
-      // Optionally add a comment explaining the change
-      if (description) {
-        // Search for the oldText
-        connector.executeMethod("SearchNext", [
-          { searchString: oldText, matchCase: true },
-        ]);
-        // Get existing comments at the current selection
-        connector.executeMethod("GetAllComments", null, (comments: any[]) => {
-          const exists = comments?.some(
-            (c) =>
-              c.Text === description &&
-              c.UserName === (session?.user?.name ?? "Guest")
-          );
-          if (!exists) {
-            connector.executeMethod("AddComment", [
-              { Text: description, UserName: session?.user?.name ?? "Guest" },
-            ]);
-          }
-        });
-      }
-    } catch (err) {
-      console.error("Error adding tracked change:", err);
+    if (description) {
+      connector.executeMethod("SearchNext", [
+        { searchString: oldText, matchCase: true },
+      ]);
+      connector.executeMethod("GetAllComments", null, (comments: any[]) => {
+        const exists = comments?.some(
+          (c) =>
+            c.Text === description &&
+            c.UserName === (session?.user?.name ?? "Guest")
+        );
+        if (!exists) {
+          connector.executeMethod("AddComment", [
+            { Text: description, UserName: session?.user?.name ?? "Guest" },
+          ]);
+        }
+      });
     }
   };
 
-  if ((!documentUrl || loading) && !token) {
+  const isLoading = (tokenLoading || !documentUrl) && !token;
+  const hasError = tokenError || suggestionsError;
+
+  if (isLoading) {
     return (
       <div className="flex h-full w-full items-center justify-center">
         <div className="text-muted-foreground">Loading document...</div>
+      </div>
+    );
+  }
+
+  if (hasError) {
+    return (
+      <div className="flex h-full w-full items-center justify-center">
+        <div className="text-red-500">
+          Error loading document:{" "}
+          {tokenError?.message || suggestionsError?.message}
+        </div>
       </div>
     );
   }
