@@ -199,7 +199,7 @@ export async function POST(request: Request) {
           model: myProvider.languageModel(selectedChatModel),
           system: systemPrompt({ selectedChatModel, requestHints }),
           messages: convertToModelMessages(uiMessages),
-          stopWhen: stepCountIs(5),
+          stopWhen: stepCountIs(2),
           experimental_activeTools:
             selectedChatModel === "chat-model-reasoning"
               ? []
@@ -207,9 +207,7 @@ export async function POST(request: Request) {
                   "getWeather",
                   "createDocument",
                   "updateDocument",
-                  ...(docxFiles.length === 0
-                    ? (["requestSuggestions"] as const)
-                    : []),
+                  "requestSuggestions",
                 ],
           experimental_transform: smoothStream({ chunking: "word" }),
           tools: {

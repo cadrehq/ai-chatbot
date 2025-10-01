@@ -1,5 +1,5 @@
 import { put } from "@vercel/blob";
-import { generateText, streamObject } from "ai";
+import { generateObject, generateText, streamObject } from "ai";
 import { Document, Packer } from "docx";
 import mammoth from "mammoth";
 import { z } from "zod";
@@ -60,13 +60,15 @@ export const docxDocumentHandler = createDocumentHandler({
     }
   },
 
-  async onUpdateDocument({ document, dataStream, session }) {
+  async onUpdateDocument({ document, dataStream, session, description }) {
     try {
       const suggestionSchema = z.array(
         z.object({
           originalText: z.string().describe("The original sentence"),
           suggestedText: z.string().describe("The suggested sentence"),
-          description: z.string().describe("The description of the suggestion"),
+          comment: z
+            .string()
+            .describe("The comment on why the change is suggested"),
         })
       );
 
@@ -77,7 +79,10 @@ export const docxDocumentHandler = createDocumentHandler({
     - Tailor your feedback to the document's subject and context.
     - "originalText" must be exact substrings from the document text.
     - Focus on issues or improvements relevant to the document's content, such as clarity, accuracy, structure, tone, or domain-specific concerns.
-    - Limit to a maximum of 5 suggestions, prioritizing the most important or impactful.
+    - Limit to a maximum of 10 suggestions, prioritizing the most important or impactful.
+
+    The description of changes that need to be made if it will be useful to you, else skip it:
+    ${description}
     `;
 
       // Fetch the DOCX document
@@ -105,53 +110,27 @@ export const docxDocumentHandler = createDocumentHandler({
             "\n\n[Document truncated due to length...]"
           : extractedText;
 
-      const { partialObjectStream } = streamObject({
+      const { object: suggestions } = await generateObject({
         model: myProvider.languageModel("artifact-model"),
         system: systemPrompt,
         prompt: `Document text:\n\n${textToAnalyze}`,
         schema: suggestionSchema,
-        maxRetries: 1,
       });
 
-      let allSuggestions: any[] = [];
-
-      for await (const partialObject of partialObjectStream) {
-        if (partialObject && Array.isArray(partialObject)) {
-          // Send each new suggestion as it becomes available
-          for (let i = allSuggestions.length; i < partialObject.length; i++) {
-            const suggestion = partialObject[i];
-            if (
-              suggestion &&
-              suggestion.originalText &&
-              suggestion.suggestedText &&
-              suggestion.description
-            ) {
-              const completeSuggestion = {
-                id: generateUUID(),
-                documentId: document.id,
-                originalText: suggestion.originalText,
-                suggestedText: suggestion.suggestedText,
-                description: suggestion.description,
-                isResolved: false,
-                userId: session.user?.id || "",
-                createdAt: new Date(),
-                documentCreatedAt: document.createdAt,
-              };
-
-              allSuggestions.push(completeSuggestion);
-
-              // Stream to client
-              dataStream.write({
-                type: "data-suggestion",
-                data: completeSuggestion,
-              });
-            }
-          }
-        }
-      }
-
-      if (allSuggestions.length > 0 && session.user?.id) {
-        await saveSuggestions({ suggestions: allSuggestions });
+      if (suggestions.length > 0 && session.user?.id) {
+        const userId = session.user.id;
+        await saveSuggestions({
+          suggestions: suggestions.map((suggestion) => ({
+            ...suggestion,
+            description: suggestion.comment,
+            id: generateUUID(),
+            documentId: document.id,
+            isResolved: false,
+            userId,
+            createdAt: new Date(),
+            documentCreatedAt: document.createdAt,
+          })),
+        });
       }
 
       return document.content || "";
