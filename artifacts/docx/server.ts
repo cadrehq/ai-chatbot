@@ -1,18 +1,20 @@
 import { put } from "@vercel/blob";
-import { generateObject, generateText, streamObject } from "ai";
+import { generateObject, generateText } from "ai";
 import { Document, Packer } from "docx";
 import mammoth from "mammoth";
 import { z } from "zod";
 import { myProvider } from "@/lib/ai/providers";
 import { createDocumentHandler } from "@/lib/artifacts/server";
-import { generateUUID, jsonToDocx } from "@/lib/utils";
 import { saveSuggestions } from "@/lib/db/queries";
+import { generateUUID, jsonToDocx } from "@/lib/utils";
 
 export const docxDocumentHandler = createDocumentHandler({
   kind: "docx",
   async onCreateDocument({ title, content }) {
     try {
-      if (content) return content;
+      if (content) {
+        return content;
+      }
 
       // Otherwise, generate a new document
       const initialPrompt = `Create a professional document with the title "${title}". 
@@ -103,7 +105,7 @@ export const docxDocumentHandler = createDocumentHandler({
       }
 
       // Truncate if too long (avoid token limits)
-      const maxChars = 50000; // ~12k tokens
+      const maxChars = 50_000; // ~12k tokens
       const textToAnalyze =
         extractedText.length > maxChars
           ? extractedText.substring(0, maxChars) +

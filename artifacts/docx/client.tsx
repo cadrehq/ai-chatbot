@@ -3,15 +3,10 @@ import {
   type IConfig,
 } from "@onlyoffice/document-editor-react";
 import { useSession } from "next-auth/react";
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import type React from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
-import { Suggestion } from "@/lib/db/schema";
+import type { Suggestion } from "@/lib/db/schema";
 import { fetcher, postRequest } from "@/lib/utils";
 
 type OnlyOfficeDocxProps = {
@@ -82,13 +77,45 @@ export const OnlyOfficeDocx: React.FC<OnlyOfficeDocxProps> = ({
     { revalidateOnFocus: false }
   );
 
+  const addTrackChangeEdit = useCallback(
+    (
+      connector: any,
+      oldText: string,
+      newText: string,
+      description?: string
+    ) => {
+      connector.executeMethod("SearchAndReplace", [
+        { searchString: oldText, replaceString: newText, matchCase: true },
+      ]);
+
+      if (description) {
+        connector.executeMethod("SearchNext", [
+          { searchString: oldText, matchCase: true },
+        ]);
+        connector.executeMethod("GetAllComments", null, (comments: any[]) => {
+          const exists = comments?.some(
+            (c) =>
+              c.Data.Text === description &&
+              c.Data.UserName === (session?.user?.name ?? "Guest")
+          );
+          if (!exists) {
+            connector.executeMethod("AddComment", [
+              { Text: description, UserName: session?.user?.name ?? "Guest" },
+            ]);
+          }
+        });
+      }
+    },
+    [session?.user]
+  );
+
   const applySuggestions = useCallback(() => {
     // Prevent applying suggestions multiple times
     if (appliedSuggestionsRef.current || !suggestions.length) {
       return;
     }
 
-    const docEditor = (window as any).DocEditor?.instances?.["docxEditor"];
+    const docEditor = (window as any).DocEditor?.instances?.docxEditor;
     if (!docEditor) {
       console.warn("OnlyOffice editor instance not found");
       return;
@@ -113,7 +140,7 @@ export const OnlyOfficeDocx: React.FC<OnlyOfficeDocxProps> = ({
     } catch (err) {
       console.error("Error applying suggestions:", err);
     }
-  }, [suggestions, session?.user?.name]);
+  }, [suggestions, addTrackChangeEdit]);
 
   useEffect(() => {
     if (
@@ -124,35 +151,6 @@ export const OnlyOfficeDocx: React.FC<OnlyOfficeDocxProps> = ({
       applySuggestions();
     }
   }, [documentReady, suggestions, applySuggestions]);
-
-  const addTrackChangeEdit = (
-    connector: any,
-    oldText: string,
-    newText: string,
-    description?: string
-  ) => {
-    connector.executeMethod("SearchAndReplace", [
-      { searchString: oldText, replaceString: newText, matchCase: true },
-    ]);
-
-    if (description) {
-      connector.executeMethod("SearchNext", [
-        { searchString: oldText, matchCase: true },
-      ]);
-      connector.executeMethod("GetAllComments", null, (comments: any[]) => {
-        const exists = comments?.some(
-          (c) =>
-            c.Data.Text === description &&
-            c.Data.UserName === (session?.user?.name ?? "Guest")
-        );
-        if (!exists) {
-          connector.executeMethod("AddComment", [
-            { Text: description, UserName: session?.user?.name ?? "Guest" },
-          ]);
-        }
-      });
-    }
-  };
 
   const isLoading = (tokenLoading || !documentUrl) && !token;
   const hasError = tokenError || suggestionsError;
@@ -179,10 +177,10 @@ export const OnlyOfficeDocx: React.FC<OnlyOfficeDocxProps> = ({
   return (
     <div className="h-full w-full">
       <DocumentEditor
-        id="docxEditor"
-        documentServerUrl={process.env.NEXT_PUBLIC_ONLY_OFFICE_SERVER_URL ?? ""}
         config={{ ...config, token }}
+        documentServerUrl={process.env.NEXT_PUBLIC_ONLY_OFFICE_SERVER_URL ?? ""}
         height="100%"
+        id="docxEditor"
         width="100%"
       />
     </div>

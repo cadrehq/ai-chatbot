@@ -1,11 +1,13 @@
-import { NextRequest, NextResponse } from "next/server";
-import fs from "fs";
-import path from "path";
+import fs from "node:fs";
+import path from "node:path";
+import { type NextRequest, NextResponse } from "next/server";
 
 // Helper to fetch file buffer from remote URL
 async function fetchFileBuffer(url: string): Promise<Buffer> {
   const res = await fetch(url);
-  if (!res.ok) throw new Error("Failed to fetch file");
+  if (!res.ok) {
+    throw new Error("Failed to fetch file");
+  }
   return Buffer.from(await res.arrayBuffer());
 }
 
@@ -35,7 +37,7 @@ export async function POST(req: NextRequest) {
       fs.mkdirSync(path.dirname(pathForSave), { recursive: true });
       fs.writeFileSync(pathForSave, fileBuffer);
       console.log("File saved to", pathForSave);
-    } catch (err) {
+    } catch (_err) {
       return NextResponse.json(
         { error: 1, message: "Failed to save file" },
         { status: 500 }

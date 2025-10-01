@@ -1,5 +1,3 @@
-/** biome-ignore-all lint/suspicious/noEmptyBlockStatements: <explanation> */
-
 import type { ComponentType } from "react";
 import { OnlyOfficeDocx } from "@/artifacts/docx/client";
 import { Artifact } from "@/components/create-artifact";
@@ -19,5 +17,7 @@ export const docxArtifact = new Artifact({
   content: DocxContent,
   actions: [],
   toolbar: [],
-  onStreamPart: () => {},
+  onStreamPart: () => {
+    console.log("docx stream part");
+  },
 });
