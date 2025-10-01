@@ -1,12 +1,12 @@
 import { put } from "@vercel/blob";
-import { generateText, generateObject } from "ai";
+import { generateText, streamObject } from "ai";
 import { Document, Packer } from "docx";
 import mammoth from "mammoth";
 import { z } from "zod";
 import { myProvider } from "@/lib/ai/providers";
 import { createDocumentHandler } from "@/lib/artifacts/server";
-import { jsonToDocx } from "@/lib/utils";
-import { saveAISuggestions } from "@/lib/db/queries";
+import { generateUUID, jsonToDocx } from "@/lib/utils";
+import { saveSuggestions } from "@/lib/db/queries";
 
 export const docxDocumentHandler = createDocumentHandler({
   kind: "docx",
@@ -64,25 +64,21 @@ export const docxDocumentHandler = createDocumentHandler({
     try {
       const suggestionSchema = z.array(
         z.object({
-          type: z.enum(["comment", "edit"]),
-          target: z.string().optional(),
-          old: z.string().optional(),
-          new: z.string().optional(),
-          text: z.string().optional(),
+          originalText: z.string().describe("The original sentence"),
+          suggestedText: z.string().describe("The suggested sentence"),
+          description: z.string().describe("The description of the suggestion"),
         })
       );
 
       const systemPrompt = `
-You are an expert in the field. Analyze the document text and provide suggestions.
+    You are an expert reviewer. Analyze the provided document text and offer relevant, high-quality suggestions.
 
-Rules:
-- For comments: use "type": "comment" with "target" (exact clause/sentence) and "text" (your commentary)
-- For edits: use "type": "edit" with "old" (exact original text) and "new" (suggested replacement)
-- "target" or "old" must be exact substrings from the document text
-- Focus on: unusual clauses, potential risks, non-standard terms, legal compliance issues
-- Limit to maximum 15 suggestions to maintain quality and avoid overwhelming the user
-- Prioritize the most critical issues first
-`;
+    Rules:
+    - Tailor your feedback to the document's subject and context.
+    - "originalText" must be exact substrings from the document text.
+    - Focus on issues or improvements relevant to the document's content, such as clarity, accuracy, structure, tone, or domain-specific concerns.
+    - Limit to a maximum of 5 suggestions, prioritizing the most important or impactful.
+    `;
 
       // Fetch the DOCX document
       const response = await fetch(document.content || "");
@@ -109,47 +105,58 @@ Rules:
             "\n\n[Document truncated due to length...]"
           : extractedText;
 
-      console.log("Calling AI for DOCX document review...");
-
-      const { object: suggestions } = await generateObject({
+      const { partialObjectStream } = streamObject({
         model: myProvider.languageModel("artifact-model"),
         system: systemPrompt,
         prompt: `Document text:\n\n${textToAnalyze}`,
         schema: suggestionSchema,
+        maxRetries: 1,
       });
 
-      // Save AI suggestions to database
-      if (suggestions.length > 0 && session.user?.id) {
-        await saveAISuggestions({
-          documentId: document.id,
-          suggestions,
-          userId: session.user.id,
-          documentCreatedAt: document.createdAt,
-        });
+      let allSuggestions: any[] = [];
+
+      for await (const partialObject of partialObjectStream) {
+        if (partialObject && Array.isArray(partialObject)) {
+          // Send each new suggestion as it becomes available
+          for (let i = allSuggestions.length; i < partialObject.length; i++) {
+            const suggestion = partialObject[i];
+            if (
+              suggestion &&
+              suggestion.originalText &&
+              suggestion.suggestedText &&
+              suggestion.description
+            ) {
+              const completeSuggestion = {
+                id: generateUUID(),
+                documentId: document.id,
+                originalText: suggestion.originalText,
+                suggestedText: suggestion.suggestedText,
+                description: suggestion.description,
+                isResolved: false,
+                userId: session.user?.id || "",
+                createdAt: new Date(),
+                documentCreatedAt: document.createdAt,
+              };
+
+              allSuggestions.push(completeSuggestion);
+
+              // Stream to client
+              dataStream.write({
+                type: "data-suggestion",
+                data: completeSuggestion,
+              });
+            }
+          }
+        }
+      }
+
+      if (allSuggestions.length > 0 && session.user?.id) {
+        await saveSuggestions({ suggestions: allSuggestions });
       }
 
       return document.content || "";
     } catch (error) {
       console.error("DOCX document review failed:", error);
-
-      // Handle rate limit errors specifically
-      if (
-        error instanceof Error &&
-        (error.message.includes("429") || error.message.includes("rate_limit"))
-      ) {
-        dataStream.write({
-          type: "error",
-          errorText:
-            "Rate limit exceeded. Please wait a moment before trying again.",
-        });
-      } else {
-        dataStream.write({
-          type: "error",
-          errorText: `Failed to review document: ${
-            error instanceof Error ? error.message : "Unknown error"
-          }`,
-        });
-      }
 
       dataStream.write({ type: "data-finish", data: null, transient: true });
 

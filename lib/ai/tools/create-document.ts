@@ -66,11 +66,6 @@ export const createDocument = ({
       if (docxFiles && docxFiles.length > 0 && kind === "docx") {
         const uploadedFileUrl = docxFiles[0];
 
-        console.log(
-          "Creating document with uploaded DOCX file:",
-          uploadedFileUrl
-        );
-
         await documentHandler.onCreateDocument({
           id,
           title,

@@ -10,7 +10,6 @@ import {
   useRef,
 } from "react";
 import useSWR from "swr";
-import { OnlyOfficeDocx } from "@/artifacts/docx/client";
 import { useArtifact } from "@/hooks/use-artifact";
 import type { Document } from "@/lib/db/schema";
 import { cn, fetcher } from "@/lib/utils";
@@ -330,13 +329,6 @@ const DocumentContent = ({ document }: { document: Document }) => {
           isInline={true}
           status={artifact.status}
           title={document.title}
-        />
-      ) : document.kind === "docx" ? (
-        <OnlyOfficeDocx
-          callbackUrl={`${process.env.NEXT_PUBLIC_APP_URL}/api/onlyoffice/callback`}
-          documentKey={document.id}
-          documentTitle={document.title}
-          documentUrl={document.content ?? ""}
         />
       ) : null}
     </div>
