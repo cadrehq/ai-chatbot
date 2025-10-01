@@ -142,8 +142,8 @@ export const OnlyOfficeDocx: React.FC<OnlyOfficeDocxProps> = ({
       connector.executeMethod("GetAllComments", null, (comments: any[]) => {
         const exists = comments?.some(
           (c) =>
-            c.Text === description &&
-            c.UserName === (session?.user?.name ?? "Guest")
+            c.Data.Text === description &&
+            c.Data.UserName === (session?.user?.name ?? "Guest")
         );
         if (!exists) {
           connector.executeMethod("AddComment", [
