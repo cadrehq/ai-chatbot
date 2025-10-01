@@ -11,7 +11,7 @@ import {
 } from "react";
 import useSWR from "swr";
 import { useArtifact } from "@/hooks/use-artifact";
-import type { Document } from "@/lib/db/schema";
+import type { Document, Suggestion } from "@/lib/db/schema";
 import { cn, fetcher } from "@/lib/utils";
 import type { ArtifactKind, UIArtifact } from "./artifact";
 import { CodeEditor } from "./code-editor";
@@ -21,6 +21,7 @@ import { FileIcon, FullscreenIcon, ImageIcon, LoaderIcon } from "./icons";
 import { ImageEditor } from "./image-editor";
 import { SpreadsheetEditor } from "./sheet-editor";
 import { Editor } from "./text-editor";
+import { Badge } from "./ui/badge";
 
 type DocumentPreviewProps = {
   isReadonly: boolean;
@@ -38,6 +39,13 @@ export function DocumentPreview({
   const { data: documents, isLoading: isDocumentsFetching } = useSWR<
     Document[]
   >(result ? `/api/document?id=${result.id}` : null, fetcher);
+  const { data: suggestions = [] } = useSWR<Suggestion[]>(
+    args?.isUpdate && result
+      ? `/api/suggestions?documentId=${result.id}`
+      : null,
+    fetcher,
+    { revalidateOnFocus: false }
+  );
 
   const previewDocument = useMemo(() => documents?.[0], [documents]);
   const hitboxRef = useRef<HTMLDivElement>(null);
@@ -59,12 +67,12 @@ export function DocumentPreview({
   }, [artifact.documentId, setArtifact]);
 
   if (artifact.isVisible) {
-    if (result) {
+    if (result || (result && args)) {
       return (
         <DocumentToolResult
           isReadonly={isReadonly}
           result={{ id: result.id, title: result.title, kind: result.kind }}
-          type="create"
+          type={args?.isUpdate ? "update" : "create"}
         />
       );
     }
@@ -74,7 +82,7 @@ export function DocumentPreview({
         <DocumentToolCall
           args={{ title: args.title, kind: args.kind }}
           isReadonly={isReadonly}
-          type="create"
+          type={args.isUpdate ? "update" : "create"}
         />
       );
     }
@@ -133,6 +141,12 @@ export function DocumentPreview({
           <span className="truncate font-semibold text-base text-zinc-900 group-hover:text-blue-700 dark:text-zinc-100 dark:group-hover:text-blue-300">
             {fileName}
           </span>
+          {suggestions.length > 0 && (
+            <Badge className="ml-2" variant="outline">
+              {suggestions.length} suggested change
+              {suggestions.length > 1 ? "s" : ""}
+            </Badge>
+          )}
         </span>
       </button>
     );
