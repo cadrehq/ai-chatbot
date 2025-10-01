@@ -12,7 +12,8 @@ type UpdateDocumentProps = {
 
 export const updateDocument = ({ session, dataStream }: UpdateDocumentProps) =>
   tool({
-    description: "Update a document with the given description.",
+    description:
+      "Update a document with the given description. For DOCX files, this will review and provide suggestions.",
     inputSchema: z.object({
       id: z.string().describe("The ID of the document to update"),
       description: z

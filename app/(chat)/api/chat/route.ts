@@ -165,6 +165,16 @@ export async function POST(request: Request) {
       country,
     };
 
+    const docxFiles = message.parts
+      .map(
+        (part) =>
+          part.type === "file" &&
+          part.mediaType ===
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document" &&
+          part.url
+      )
+      .filter(Boolean) as string[];
+
     await saveMessages({
       messages: [
         {
@@ -197,17 +207,16 @@ export async function POST(request: Request) {
                   "getWeather",
                   "createDocument",
                   "updateDocument",
-                  // "requestSuggestions",
+                  ...(docxFiles.length === 0
+                    ? (["requestSuggestions"] as const)
+                    : []),
                 ],
           experimental_transform: smoothStream({ chunking: "word" }),
           tools: {
             getWeather,
-            createDocument: createDocument({ session, dataStream }),
+            createDocument: createDocument({ session, dataStream, docxFiles }),
             updateDocument: updateDocument({ session, dataStream }),
-            // requestSuggestions: requestSuggestions({
-            //   session,
-            //   dataStream,
-            // }),
+            requestSuggestions: requestSuggestions({ session, dataStream }),
           },
           experimental_telemetry: {
             isEnabled: isProductionEnvironment,

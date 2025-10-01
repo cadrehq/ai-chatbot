@@ -11,12 +11,17 @@ import { generateUUID } from "@/lib/utils";
 type CreateDocumentProps = {
   session: Session;
   dataStream: UIMessageStreamWriter<ChatMessage>;
+  docxFiles?: string[];
 };
 
-export const createDocument = ({ session, dataStream }: CreateDocumentProps) =>
+export const createDocument = ({
+  session,
+  dataStream,
+  docxFiles,
+}: CreateDocumentProps) =>
   tool({
     description:
-      "Create a document for a writing or content creation activities. This tool will call other functions that will generate the contents of the document based on the title and kind.",
+      "Create a document for writing or content creation activities, or work with uploaded DOCX files for review/editing. When docxFiles are provided, use those files instead of creating new documents and always use kind=docx. This tool will call other functions that will generate contents or process existing documents based on the title and kind.",
     inputSchema: z.object({
       title: z.string(),
       kind: z.enum(artifactKinds),
@@ -57,6 +62,36 @@ export const createDocument = ({ session, dataStream }: CreateDocumentProps) =>
         throw new Error(`No document handler found for kind: ${kind}`);
       }
 
+      // If docxFiles are provided, use them instead of creating new documents
+      if (docxFiles && docxFiles.length > 0 && kind === "docx") {
+        const uploadedFileUrl = docxFiles[0];
+
+        console.log(
+          "Creating document with uploaded DOCX file:",
+          uploadedFileUrl
+        );
+
+        await documentHandler.onCreateDocument({
+          id,
+          title,
+          dataStream,
+          session,
+          content: uploadedFileUrl,
+        });
+
+        dataStream.write({ type: "data-finish", data: null, transient: true });
+
+        return {
+          id,
+          title,
+          kind,
+          content: uploadedFileUrl,
+          message:
+            "Document uploaded successfully. I can now review it, identify issues, or make edits if you'd like.",
+        };
+      }
+
+      // Normal document creation flow (no uploaded file)
       await documentHandler.onCreateDocument({
         id,
         title,

@@ -17,7 +17,8 @@ export const requestSuggestions = ({
   dataStream,
 }: RequestSuggestionsProps) =>
   tool({
-    description: "Request suggestions for a document",
+    description:
+      "Request suggestions for a text document (NOT for DOCX files - those are handled separately)",
     inputSchema: z.object({
       documentId: z
         .string()
@@ -29,6 +30,13 @@ export const requestSuggestions = ({
       if (!document || !document.content) {
         return {
           error: "Document not found",
+        };
+      }
+
+      if (document.kind === "docx") {
+        return {
+          error:
+            "DOCX files should be handled by updateDocument tool, not requestSuggestions",
         };
       }
 
@@ -51,7 +59,6 @@ export const requestSuggestions = ({
       });
 
       for await (const element of elementStream) {
-        // @ts-expect-error todo: fix type
         const suggestion: Suggestion = {
           originalText: element.originalSentence,
           suggestedText: element.suggestedSentence,
@@ -59,7 +66,7 @@ export const requestSuggestions = ({
           id: generateUUID(),
           documentId,
           isResolved: false,
-        };
+        } as Suggestion;
 
         dataStream.write({
           type: "data-suggestion",

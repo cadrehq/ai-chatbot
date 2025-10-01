@@ -10,6 +10,14 @@ import { twMerge } from "tailwind-merge";
 import type { DBMessage, Document } from "@/lib/db/schema";
 import { ChatSDKError, type ErrorCode } from "./errors";
 import type { ChatMessage, ChatTools, CustomUIDataTypes } from "./types";
+import {
+  Document as Docx,
+  Paragraph,
+  HeadingLevel,
+  Table,
+  TableRow,
+  TableCell,
+} from "docx";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -146,4 +154,51 @@ export async function convertUrlToBase64(
     return { ...message, parts: newParts };
   }
   return message;
+}
+
+export function jsonToDocx(
+  json: { type: string; level: number; content: any }[]
+): Docx {
+  const doc = new Docx({
+    sections: [
+      {
+        children: json
+          .map((item) => {
+            switch (item.type) {
+              case "heading":
+                return new Paragraph({
+                  text: item.content,
+                  heading:
+                    item.level === 1
+                      ? HeadingLevel.HEADING_1
+                      : HeadingLevel.HEADING_2,
+                });
+              case "paragraph":
+                return new Paragraph(item.content);
+              case "bullet":
+                return new Paragraph({
+                  text: item.content,
+                  bullet: { level: 0 },
+                });
+              case "table":
+                return new Table({
+                  rows: item.content.map(
+                    (row: string[]) =>
+                      new TableRow({
+                        children: row.map(
+                          (cell) =>
+                            new TableCell({ children: [new Paragraph(cell)] })
+                        ),
+                      })
+                  ),
+                });
+              default:
+                return new Paragraph(item.content);
+            }
+          })
+          .flat(),
+      },
+    ],
+  });
+  return doc;
 }
