@@ -10,9 +10,9 @@ import { generateUUID, jsonToDocx } from "@/lib/utils";
 
 export const docxDocumentHandler = createDocumentHandler({
   kind: "docx",
-  async onCreateDocument({ title, content, kind }) {
+  async onCreateDocument({ title, content }) {
     try {
-      if (content && !kind) {
+      if (content) {
         return content;
       }
 
