@@ -42,7 +42,7 @@ export const OnlyOfficeDocx: React.FC<OnlyOfficeDocxProps> = ({
         mode: "edit",
         user: {
           id: session?.user?.id || Math.random().toString(36),
-          name: session?.user?.name || "Guest",
+          name: session?.user?.email || "Guest",
           image: `https://avatar.vercel.sh/${session?.user?.email}`,
         },
         customization: {
@@ -96,11 +96,11 @@ export const OnlyOfficeDocx: React.FC<OnlyOfficeDocxProps> = ({
           const exists = comments?.some(
             (c) =>
               c.Data.Text === description &&
-              c.Data.UserName === (session?.user?.name ?? "Guest")
+              c.Data.UserName === (session?.user?.email ?? "Guest")
           );
           if (!exists) {
             connector.executeMethod("AddComment", [
-              { Text: description, UserName: session?.user?.name ?? "Guest" },
+              { Text: description, UserName: session?.user?.email ?? "Guest" },
             ]);
           }
         });

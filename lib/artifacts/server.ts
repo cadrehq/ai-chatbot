@@ -23,6 +23,7 @@ export type CreateDocumentCallbackProps = {
   dataStream: UIMessageStreamWriter<ChatMessage>;
   session: Session;
   content?: string; // Allow passing content for docx creation
+  kind?: ArtifactKind; // Optional kind for flexibility
 };
 
 export type UpdateDocumentCallbackProps = {
